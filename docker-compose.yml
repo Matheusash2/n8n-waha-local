@@ -41,7 +41,9 @@ services:
 
   # Waha (WhatsApp adapter) - mapeando para /waha via proxy
   waha:
-    image: devlikeapro/waha:latest
+    # Pin a versão específica em produção (evite `:latest`).
+    # Ex: use `devlikeapro/waha:1.2.3` após testar a versão.
+    image: devlikeapro/waha:1.0.0
     environment:
       WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
       WAHA_API_KEY: ${WAHA_API_KEY}
@@ -108,7 +110,8 @@ services:
       retries: 5
 
   chatwoot:
-    image: chatwoot/chatwoot:2.25.0 # fixe a versão compatível
+    # Pin a versão do Chatwoot para reprodutibilidade e segurança
+    image: chatwoot/chatwoot:2.25.0
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USERNAME: ${POSTGRES_CHATWOOT_USER:-${POSTGRES_USER}}
@@ -134,6 +137,7 @@ services:
 
   # Nginx Proxy Manager (faz SSL via Let's Encrypt e gerencia hosts)
   proxy:
+    # Pin a versão do Nginx Proxy Manager
     image: jc21/nginx-proxy-manager:2.11.1
     ports:
       - "80:80"
@@ -146,6 +150,8 @@ services:
     environment:
       # você pode definir credenciais iniciais via env (opcional)
       # DISABLE_IPV6: "true"
+      # Security note: prefer provisionamento de credenciais via Docker secrets
+      # e mantenha o painel admin do NPM acessível apenas via localhost/SSH tunnel.
     networks:
       - internal_net
     restart: unless-stopped
