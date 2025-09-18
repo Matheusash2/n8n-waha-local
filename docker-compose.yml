@@ -2,14 +2,28 @@ version: "3.9"
 
 services:
   redis:
-    image: redis:latest
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    image: redis:7.2-alpine
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD}",
+      ]
     networks:
       - internal_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - redis_data:/data
 
   postgres:
-    image: postgres:latest
+    image: postgres:15
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -19,12 +33,19 @@ services:
     networks:
       - internal_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
+  # Waha (WhatsApp adapter) - mapeando para /waha via proxy
   waha:
     image: devlikeapro/waha:latest
     environment:
       WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
       WAHA_API_KEY: ${WAHA_API_KEY}
+      # Se o waha suportar redis/postgres, configure aqui (ex.: REDIS_URL)
     volumes:
       - waha_sessions:/app/.sessions
       - waha_media:/app/.media
@@ -34,26 +55,65 @@ services:
       - redis
       - postgres
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
+  # n8n - configurado para Postgres + Redis queue (production-ready minimal)
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:2.321.0 # exemplo de tag fixa - atualize para a versão testada/estável que você prefere
     environment:
-      WEBHOOK_URL: https://n8n.${DOMAIN}
+      # DB (Postgres)
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Redis (fila)
+      QUEUE_BULL_REDIS_HOST: redis
+      QUEUE_BULL_REDIS_PORT: 6379
+      QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      QUEUE_MODE: redis
+
+      # Web / webhook config
       N8N_HOST: n8n.${DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
       GENERIC_TIMEZONE: America/Sao_Paulo
+
+      # Basic auth for UI (strongly recommended)
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+
+      # Optional: disable anonymous public flows if needed
+      N8N_PUBLIC_API_DISABLED: "true"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
       - internal_net
+    depends_on:
+      - postgres
+      - redis
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   chatwoot:
-    image: chatwoot/chatwoot:latest
+    image: chatwoot/chatwoot:2.25.0 # fixe a versão compatível
     environment:
       POSTGRES_HOST: postgres
-      POSTGRES_USERNAME: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DATABASE: ${POSTGRES_DB}
+      POSTGRES_USERNAME: ${POSTGRES_CHATWOOT_USER:-${POSTGRES_USER}}
+      POSTGRES_PASSWORD: ${POSTGRES_CHATWOOT_PASSWORD:-${POSTGRES_PASSWORD}}
+      POSTGRES_DATABASE: ${POSTGRES_CHATWOOT_DB:-${POSTGRES_DB}}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${CHATWOOT_SECRET}
       FRONTEND_URL: https://chat.${DOMAIN}
@@ -66,19 +126,34 @@ services:
     networks:
       - internal_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
+  # Nginx Proxy Manager (faz SSL via Let's Encrypt e gerencia hosts)
   proxy:
-    image: jc21/nginx-proxy-manager:latest
+    image: jc21/nginx-proxy-manager:2.11.1
     ports:
       - "80:80"
       - "443:443"
-      - "81:81" # painel de administração
+      # Painel admin: recomendo mapear apenas para localhost (ver notas abaixo)
+      - "127.0.0.1:81:81"
     volumes:
       - proxy_data:/data
       - proxy_letsencrypt:/etc/letsencrypt
+    environment:
+      # você pode definir credenciais iniciais via env (opcional)
+      # DISABLE_IPV6: "true"
     networks:
       - internal_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:81 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   pgdata:
@@ -88,6 +163,7 @@ volumes:
   chatwoot_data:
   proxy_data:
   proxy_letsencrypt:
+  redis_data:
 
 networks:
   internal_net:
