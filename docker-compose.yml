@@ -40,9 +40,9 @@ services:
 
   # Waha (WhatsApp adapter) - mapeando para /waha via proxy
   waha:
-    # Pin a versão específica em produção (evite `:latest`).
-    # Ex: use `devlikeapro/waha:1.2.3` após testar a versão.
-    image: devlikeapro/waha:1.0.0
+    # Pin uma versão específica em produção. Temporariamente usando `latest`
+    # para evitar erro de manifest ao fazer pull.
+    image: devlikeapro/waha:latest
     environment:
       WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
       WAHA_API_KEY: ${WAHA_API_KEY}
