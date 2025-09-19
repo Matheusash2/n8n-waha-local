@@ -147,11 +147,11 @@ services:
     volumes:
       - proxy_data:/data
       - proxy_letsencrypt:/etc/letsencrypt
-    environment:
-      # você pode definir credenciais iniciais via env (opcional)
-      # DISABLE_IPV6: "true"
-      # Security note: prefer provisionamento de credenciais via Docker secrets
-      # e mantenha o painel admin do NPM acessível apenas via localhost/SSH tunnel.
+    # você pode definir credenciais iniciais via env (opcional)
+    # Exemplo: DISABLE_IPV6: "true"
+    # Security note: prefer provisionamento de credenciais via Docker secrets
+    # e mantenha o painel admin do NPM acessível apenas via localhost/SSH tunnel.
+    environment: {}
     networks:
       - internal_net
     restart: unless-stopped
