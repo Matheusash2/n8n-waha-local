@@ -78,6 +78,7 @@ docker compose logs -f proxy
 ## Acessando serviços
 
 - n8n: `https://n8n.<DOMAIN>` (autenticação básica se ativada)
+	- Observação: a configuração do `docker-compose.yml` usa `n8nio/n8n:latest` por padrão temporariamente. Após validar uma versão estável, substitua por uma tag fixa (ex.: `n8nio/n8n:2.321.0`) para maior reprodutibilidade.
 - Chatwoot (frontend): `https://chat.<DOMAIN>`
 - Nginx Proxy Manager (painel): `http://127.0.0.1:81` (mapeado apenas para localhost por segurança)
 - Waha: normalmento acessível via proxy em `/waha` conforme configuração do proxy (veja `docker-compose.yml`).
