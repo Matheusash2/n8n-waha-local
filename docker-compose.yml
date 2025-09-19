@@ -1,4 +1,3 @@
-
 services:
   redis:
     image: redis:7.2-alpine
@@ -112,6 +111,7 @@ services:
     # Pin a versão do Chatwoot para reprodutibilidade e segurança
     # Temporariamente usando `latest` para evitar erro de manifest não encontrado.
     image: chatwoot/chatwoot:latest
+    command: bundle exec rails s -b 0.0.0.0 -p 3000
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USERNAME: ${POSTGRES_CHATWOOT_USER:-${POSTGRES_USER}}
@@ -134,6 +134,24 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
+  chatwoot-worker:
+    image: chatwoot/chatwoot:latest
+    command: bundle exec sidekiq
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USERNAME: ${POSTGRES_CHATWOOT_USER:-${POSTGRES_USER}}
+      POSTGRES_PASSWORD: ${POSTGRES_CHATWOOT_PASSWORD:-${POSTGRES_PASSWORD}}
+      POSTGRES_DATABASE: ${POSTGRES_CHATWOOT_DB:-${POSTGRES_DB}}
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      SECRET_KEY_BASE: ${CHATWOOT_SECRET}
+      RAILS_ENV: production
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - internal_net
+    restart: unless-stopped
 
   # Nginx Proxy Manager (faz SSL via Let's Encrypt e gerencia hosts)
   proxy:
