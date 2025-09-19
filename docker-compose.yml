@@ -110,7 +110,8 @@ services:
 
   chatwoot:
     # Pin a versão do Chatwoot para reprodutibilidade e segurança
-    image: chatwoot/chatwoot:2.25.0
+    # Temporariamente usando `latest` para evitar erro de manifest não encontrado.
+    image: chatwoot/chatwoot:latest
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USERNAME: ${POSTGRES_CHATWOOT_USER:-${POSTGRES_USER}}
