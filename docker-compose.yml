@@ -21,7 +21,7 @@ services:
       - redis_data:/data
 
   postgres:
-    image: postgres:15
+    image: ankane/pgvector:pg15
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
