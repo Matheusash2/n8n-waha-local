@@ -78,9 +78,9 @@ docker compose logs -f proxy
 ## Acessando serviços
 
 - n8n: `https://n8n.<DOMAIN>` (autenticação básica se ativada)
-	- Observação: a configuração do `docker-compose.yml` usa `n8nio/n8n:latest` por padrão temporariamente. Após validar uma versão estável, substitua por uma tag fixa (ex.: `n8nio/n8n:2.321.0`) para maior reprodutibilidade.
-		- Observação: o `chatwoot` também está temporariamente configurado com `chatwoot/chatwoot:latest` para evitar erros de manifest. Substitua por uma tag fixa testada quando estiver pronto para produção.
-			- Observação: o `waha` também está temporariamente configurado com `devlikeapro/waha:latest` para evitar erro de manifest. Substitua por uma tag fixa testada quando estiver pronto para produção.
+  - Observação: a configuração do `docker-compose.yml` usa `n8nio/n8n:latest` por padrão temporariamente. Após validar uma versão estável, substitua por uma tag fixa (ex.: `n8nio/n8n:2.321.0`) para maior reprodutibilidade.
+    - Observação: o `chatwoot` também está temporariamente configurado com `chatwoot/chatwoot:latest` para evitar erros de manifest. Substitua por uma tag fixa testada quando estiver pronto para produção.
+      - Observação: o `waha` também está temporariamente configurado com `devlikeapro/waha:latest` para evitar erro de manifest. Substitua por uma tag fixa testada quando estiver pronto para produção.
 - Chatwoot (frontend): `https://chat.<DOMAIN>`
 - Nginx Proxy Manager (painel): `http://127.0.0.1:81` (mapeado apenas para localhost por segurança)
 - Waha: normalmento acessível via proxy em `/waha` conforme configuração do proxy (veja `docker-compose.yml`).
@@ -107,3 +107,137 @@ Se quiser, eu posso:
 - Adicionar um diagrama simples da arquitetura.
 
 Diga qual desses itens quer que eu faça em seguida.
+
+## Arquitetura
+
+Abaixo há um diagrama ASCII simplificado da arquitetura do ambiente e uma descrição dos fluxos principais, variáveis importantes e checks rápidos (smoke tests).
+
+Diagrama ASCII da arquitetura
+
+    												 Internet / WhatsApp
+    																 │
+    																 ▼
+    													 (DNS -> domain)
+    																 │
+    												 ┌─────────────────┐
+    												 │ Nginx Proxy     │
+    												 │ Manager (proxy) │
+    												 │ 80/443 + 127.0.0.1:81 (admin) │
+    												 └─────────────────┘
+    														│      │       │
+    						https://n8n.DOMAIN│      │https://chat.DOMAIN
+    														▼      ▼       ▼
+    										┌──────────┐  ┌──────────┐
+    										│   n8n    │  │ Chatwoot │
+    										│(5678)   │  │ (3000)   │
+    										└──────────┘  └──────────┘
+    												 ▲             ▲
+    												 │             │
+    							WEBHOOKS   │             │ FRONTEND
+    												 │             │
+    											 ┌────────────────────────┐
+    											 │       Waha (WhatsApp)  │
+    											 │  sessions/media volumes│
+    											 └────────────────────────┘
+    												 ▲             ▲
+    												 │             │
+    					┌──────────────┴──────────────┴──────────────┐
+    					│                 internal_net               │
+    					│                                            │
+    					│   ┌────────┐     ┌──────────┐    ┌────────┐│
+    					│   │Redis   │     │Postgres  │    │Volumes ││
+    					│   │6379    │     │5432      │    │(pg,n8n,││
+    					│   └────────┘     └──────────┘    │ waha...)││
+    					└────────────────────────────────────────────┘
+
+Legenda / observações:
+
+- Todos os serviços residem na rede interna `internal_net` (driver: bridge).
+- O `proxy` (Nginx Proxy Manager) é o ponto de entrada público, termina TLS e faz reverse proxy para:
+  - n8n (ex.: n8n.DOMAIN)
+  - Chatwoot frontend (chat.DOMAIN)
+  - Waha exposto via rota (ex: proxy configura /waha → waha:3000)
+- n8n usa Postgres para persistência e Redis para fila (QUEUE_MODE=redis).
+- Chatwoot usa o mesmo Postgres + Redis (obs: o README recomenda DB separado opcionalmente).
+- Waha mantém `sessions` e `media` em volumes persistentes; pode enviar webhooks para n8n (WHATSAPP_HOOK_URL apontando para n8n).
+- chatwoot-worker executa Sidekiq (fila) e comunica-se com Redis/Postgres.
+
+Fluxos principais (passo a passo)
+
+1. Recebimento de mensagens WhatsApp
+
+   - Usuário envia mensagem para número gerenciado pelo Waha.
+   - Waha processa a sessão e, conforme configurado, envia webhook para n8n em:
+     - WHATSAPP_HOOK_URL = https://n8n.${DOMAIN}/webhook/webhook
+   - Proxy roteia a requisição HTTPS para o container `n8n`.
+
+2. Processamento em n8n
+
+   - n8n recebe o webhook e executa um workflow definido pelo usuário.
+   - Workflow pode:
+     - Enviar/receber dados no Chatwoot via API (ex.: criar conversa, enviar mensagem).
+     - Persistir dados no Postgres (ex.: logs, histórico).
+     - Acionar jobs filados no Redis (n8n usa fila Bull com Redis).
+
+3. Interação com Chatwoot
+
+   - Chatwoot pode receber mensagens enviadas por n8n ou integrar-se ao fluxo via API.
+   - Chatwoot usa Redis para filas/background e Postgres para dados persistentes.
+   - chatwoot-worker processa jobs (sidekiq), conectado ao Redis/Postgres.
+
+4. Persistência e sessão
+   - Postgres (volume `pgdata`) guarda dados de aplicações (n8n, Chatwoot).
+   - Redis (volume `redis_data`) mantém filas e cache; protegido por senha `${REDIS_PASSWORD}`.
+   - Waha armazena sessões em `waha_sessions` e mídias em `waha_media`.
+
+Pontos de atenção / variáveis importantes
+
+- `.env` deve conter:
+  - POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+  - REDIS_PASSWORD
+  - DOMAIN (ex: meudominio.com)
+  - N8N_BASIC_AUTH_USER, N8N_BASIC_AUTH_PASSWORD
+  - WAHA_API_KEY, CHATWOOT_SECRET
+- Imagens estão com `:latest` em alguns serviços — para produção, pin por tag.
+- Proxy painel admin mapeado apenas para `127.0.0.1:81` (recomendado por segurança).
+- Recomenda-se usar Docker secrets em ambiente de produção.
+
+Verificações rápidas (smoke tests)
+
+- Verificar containers estão up:
+  - docker compose ps
+- Logs:
+  - docker compose logs -f n8n
+  - docker compose logs -f proxy
+- Testar healthchecks:
+  - n8n: abrir https://n8n.${DOMAIN}/ (autenticação básica ativa)
+  - Chatwoot: abrir https://chat.${DOMAIN}/
+  - Proxy admin: http://127.0.0.1:81
+
+Exemplos de checks locais (copie/cole no PowerShell):
+
+```powershell
+# Mostrar containers
+docker compose ps
+
+# Ver logs do n8n
+docker compose logs -f n8n
+
+# Testar que proxy responde no painel admin
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:81 | Select-Object StatusCode
+```
+
+Arquivos/volumes importantes para backup
+
+- Volumes:
+  - `pgdata` — Postgres DB
+  - `n8n_data` — dados do n8n
+  - `waha_sessions`, `waha_media` — sessões e mídias do Waha
+  - `chatwoot_data` — storage de chatwoot
+  - `proxy_letsencrypt` — certificados Let's Encrypt gerados pelo proxy
+
+Próximo passo sugerido
+
+- Posso aplicar o diagrama no `README.md` ou gerar um diagrama mermaid/imagem e adicioná-lo ao repositório.
+- Também posso criar um script `make-secrets.ps1` para criar Docker secrets localmente e atualizar o `docker-compose.yml` para usá-los.
+- Diga qual dessas opções prefere.
