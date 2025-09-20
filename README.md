@@ -2,7 +2,7 @@
 
 Stack Docker Compose para lab/local que integra:
 
-- Waha (adaptador WhatsApp) - imagem `devlikeapro/waha`
+- evolution (adaptador WhatsApp) - imagem `atendai/evolution-api`
 - n8n (automação) - imagem `n8nio/n8n`
 - Chatwoot (suporte/omnichannel) - imagem `chatwoot/chatwoot`
 - Redis - `redis:7.2-alpine`
@@ -34,7 +34,7 @@ Este repositório contém um `docker-compose.yml` para orquestrar os serviços a
 - `POSTGRES_CHATWOOT_PASSWORD`
 
 - `REDIS_PASSWORD` — senha do Redis (usado pelo redis e pelas apps que se conectam a ele).
-- `WAHA_API_KEY` — chave API do Waha (se aplicável).
+- `EVOLUTION_API_KEY` — chave API do evolution (se aplicável).
 - `CHATWOOT_SECRET` — secret para o Chatwoot.
 - `DOMAIN` — domínio base sem `https://` e sem `/` (ex: `meudominio.com`).
 
@@ -80,7 +80,7 @@ docker compose logs -f proxy
 - n8n: `https://n8n.<DOMAIN>` (autenticação básica se ativada)
   - Observação: a configuração do `docker-compose.yml` usa `n8nio/n8n:latest` por padrão temporariamente. Após validar uma versão estável, substitua por uma tag fixa (ex.: `n8nio/n8n:2.321.0`) para maior reprodutibilidade.
     - Observação: o `chatwoot` também está temporariamente configurado com `chatwoot/chatwoot:latest` para evitar erros de manifest. Substitua por uma tag fixa testada quando estiver pronto para produção.
-      - Observação: o `waha` também está temporariamente configurado com `devlikeapro/waha:latest` para evitar erro de manifest. Substitua por uma tag fixa testada quando estiver pronto para produção.
+      - Observação: o `evolution` também está temporariamente configurado com `atendai/evolution-api:v2.2.3` para evitar erro de manifest. Substitua por uma tag fixa testada quando estiver pronto para produção.
 - Chatwoot (frontend): `https://chat.<DOMAIN>`
 - Nginx Proxy Manager (painel): `http://127.0.0.1:81` (mapeado apenas para localhost por segurança)
 - Waha: normalmento acessível via proxy em `/waha` conforme configuração do proxy (veja `docker-compose.yml`).
@@ -136,7 +136,7 @@ Diagrama ASCII da arquitetura
     							WEBHOOKS   │             │ FRONTEND
     												 │             │
     											 ┌────────────────────────┐
-    											 │       Waha (WhatsApp)  │
+    											 │  evolution (WhatsApp)  │
     											 │  sessions/media volumes│
     											 └────────────────────────┘
     												 ▲             ▲
@@ -147,7 +147,7 @@ Diagrama ASCII da arquitetura
     					│   ┌────────┐     ┌──────────┐    ┌────────┐│
     					│   │Redis   │     │Postgres  │    │Volumes ││
     					│   │6379    │     │5432      │    │(pg,n8n,││
-    					│   └────────┘     └──────────┘    │ waha...)││
+    					│   └────────┘     └──────────┘    │ evo...)││
     					└────────────────────────────────────────────┘
 
 Legenda / observações:
@@ -156,10 +156,10 @@ Legenda / observações:
 - O `proxy` (Nginx Proxy Manager) é o ponto de entrada público, termina TLS e faz reverse proxy para:
   - n8n (ex.: n8n.DOMAIN)
   - Chatwoot frontend (chat.DOMAIN)
-  - Waha exposto via rota (ex: proxy configura /waha → waha:3000)
+  - evolution exposto via rota (ex: proxy configura /evolution → evolution:3000)
 - n8n usa Postgres para persistência e Redis para fila (QUEUE_MODE=redis).
 - Chatwoot usa o mesmo Postgres + Redis (obs: o README recomenda DB separado opcionalmente).
-- Waha mantém `sessions` e `media` em volumes persistentes; pode enviar webhooks para n8n (WHATSAPP_HOOK_URL apontando para n8n).
+- Evolution mantém `sessions` e `media` em volumes persistentes; pode enviar webhooks para n8n (WHATSAPP_HOOK_URL apontando para n8n).
 - chatwoot-worker executa Sidekiq (fila) e comunica-se com Redis/Postgres.
 
 Fluxos principais (passo a passo)
@@ -167,7 +167,7 @@ Fluxos principais (passo a passo)
 1. Recebimento de mensagens WhatsApp
 
    - Usuário envia mensagem para número gerenciado pelo Waha.
-   - Waha processa a sessão e, conforme configurado, envia webhook para n8n em:
+   - Evolution processa a sessão e, conforme configurado, envia webhook para n8n em:
      - WHATSAPP_HOOK_URL = https://n8n.${DOMAIN}/webhook/webhook
    - Proxy roteia a requisição HTTPS para o container `n8n`.
 
@@ -188,7 +188,7 @@ Fluxos principais (passo a passo)
 4. Persistência e sessão
    - Postgres (volume `pgdata`) guarda dados de aplicações (n8n, Chatwoot).
    - Redis (volume `redis_data`) mantém filas e cache; protegido por senha `${REDIS_PASSWORD}`.
-   - Waha armazena sessões em `waha_sessions` e mídias em `waha_media`.
+   - Waha armazena sessões em `evolution_sessions` e mídias em `evolution_media`.
 
 Pontos de atenção / variáveis importantes
 
@@ -197,7 +197,7 @@ Pontos de atenção / variáveis importantes
   - REDIS_PASSWORD
   - DOMAIN (ex: meudominio.com)
   - N8N_BASIC_AUTH_USER, N8N_BASIC_AUTH_PASSWORD
-  - WAHA_API_KEY, CHATWOOT_SECRET
+  - EVOLUTION_API_KEY, CHATWOOT_SECRET
 - Imagens estão com `:latest` em alguns serviços — para produção, pin por tag.
 - Proxy painel admin mapeado apenas para `127.0.0.1:81` (recomendado por segurança).
 - Recomenda-se usar Docker secrets em ambiente de produção.
@@ -232,7 +232,7 @@ Arquivos/volumes importantes para backup
 - Volumes:
   - `pgdata` — Postgres DB
   - `n8n_data` — dados do n8n
-  - `waha_sessions`, `waha_media` — sessões e mídias do Waha
+  - `evolution_sessions`, `evolution_media` — sessões e mídias do Waha
   - `chatwoot_data` — storage de chatwoot
   - `proxy_letsencrypt` — certificados Let's Encrypt gerados pelo proxy
 

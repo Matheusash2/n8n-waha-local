@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis:7.2-alpine
+    image: redis:8.2.1-alpine
     command:
       [
         "redis-server",
@@ -21,7 +21,7 @@ services:
       - redis_data:/data
 
   postgres:
-    image: postgres:latest
+    image: postgres:16.10-alpine3.22
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -41,29 +41,37 @@ services:
   waha:
     # Pin uma versão específica em produção. Temporariamente usando `latest`
     # para evitar erro de manifest ao fazer pull.
-    image: devlikeapro/waha:latest
+    image: atendai/evolution-api:v2.2.3
     environment:
+      # Evolution API expects an authentication key variable named AUTHENTICATION_API_KEY
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      # legacy variable (kept for compatibility with other parts of the compose)
+      WAHA_API_KEY: ${EVOLUTION_API_KEY}
       WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
-      WAHA_API_KEY: ${WAHA_API_KEY}
-      # Se o waha suportar redis/postgres, configure aqui (ex.: REDIS_URL)
+      # If Evolution needs Redis/Postgres connection strings, add them here (optional)
     volumes:
-      - waha_sessions:/app/.sessions
-      - waha_media:/app/.media
+      # keep existing session/media volumes (if other tooling expects them)
+      - evolution_sessions:/app/.sessions
+      - evolution_media:/app/.media
+      # Evolution API persistent volumes (recommended in official docs)
+      - evolution_store:/evolution/store
+      - evolution_instances:/evolution/instances
     networks:
       - internal_net
     depends_on:
       - redis
       - postgres
     restart: unless-stopped
+    # Evolution API serves on port 8080 by default; update proxy to forward to :8080
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
 
   # n8n - configurado para Postgres + Redis queue (production-ready minimal)
   n8n:
-    image: n8nio/n8n:latest # trocado para `latest` temporariamente; substitua por uma tag fixa testada em produção
+    image: n8nio/n8n:1.112.3 # trocado para `latest` temporariamente; substitua por uma tag fixa testada em produção
     environment:
       # DB (Postgres)
       DB_TYPE: postgresdb
@@ -110,7 +118,7 @@ services:
   chatwoot:
     # Pin a versão do Chatwoot para reprodutibilidade e segurança
     # Temporariamente usando `latest` para evitar erro de manifest não encontrado.
-    image: chatwoot/chatwoot:latest
+    image: chatwoot/chatwoot:v4.6.0
     command: bundle exec rails s -b 0.0.0.0 -p 3000
     environment:
       POSTGRES_HOST: postgres
@@ -136,7 +144,7 @@ services:
       retries: 5
 
   chatwoot-worker:
-    image: chatwoot/chatwoot:latest
+    image: chatwoot/chatwoot:v4.6.0
     command: bundle exec sidekiq
     environment:
       POSTGRES_HOST: postgres
@@ -156,7 +164,7 @@ services:
   # Nginx Proxy Manager (faz SSL via Let's Encrypt e gerencia hosts)
   proxy:
     # Pin a versão do Nginx Proxy Manager
-    image: jc21/nginx-proxy-manager:2.11.1
+    image: jc21/nginx-proxy-manager:2.12.6
     ports:
       - "80:80"
       - "443:443"
@@ -181,8 +189,8 @@ services:
 
 volumes:
   pgdata:
-  waha_sessions:
-  waha_media:
+  evolution_sessions:
+  evolution_media:
   n8n_data:
   chatwoot_data:
   proxy_data:
