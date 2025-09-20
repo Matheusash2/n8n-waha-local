@@ -21,7 +21,7 @@ services:
       - redis_data:/data
 
   postgres:
-    image: postgres:16.10-alpine3.22
+    image: postgres:17-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
