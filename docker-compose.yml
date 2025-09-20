@@ -45,7 +45,7 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
       DATABASE_PROVIDER: postgresql
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${EVOLUTION_DB_NAME}
+      DATABASE_URL: "postgres://postgres:2f9d7b3e8c1a5f6d9e4b2c7a3f8d1e6b@postgres:5432/evolution"
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
     volumes:
       - evolution_sessions:/app/.sessions
@@ -88,6 +88,9 @@ services:
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
       N8N_PUBLIC_API_DISABLED: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: true
+      N8N_RUNNERS_ENABLED: true
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: false
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
