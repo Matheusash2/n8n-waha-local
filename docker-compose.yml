@@ -39,27 +39,17 @@ services:
 
   # Waha (WhatsApp adapter) - mapeando para /waha via proxy
   waha:
-    # Pin uma versão específica em produção. Temporariamente usando `latest`
-    # para evitar erro de manifest ao fazer pull.
     image: atendai/evolution-api:v2.2.3
     environment:
-      # Evolution API expects an authentication key variable named AUTHENTICATION_API_KEY
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
-      # legacy variable (kept for compatibility with other parts of the compose)
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
-      # If Evolution needs Redis/Postgres connection strings, add them here (optional)
-      # Configuração do banco (Postgres)
       DATABASE_PROVIDER: postgresql
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-
-      # Se precisar de Redis:
+      DATABASE_URL: postgres://${WAHA_DB_USER}:${WAHA_DB_PASSWORD}@postgres:5432/${WAHA_DB_NAME}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
     volumes:
-      # keep existing session/media volumes (if other tooling expects them)
       - evolution_sessions:/app/.sessions
       - evolution_media:/app/.media
-      # Evolution API persistent volumes (recommended in official docs)
       - evolution_store:/evolution/store
       - evolution_instances:/evolution/instances
     networks:
@@ -68,7 +58,6 @@ services:
       - redis
       - postgres
     restart: unless-stopped
-    # Evolution API serves on port 8080 by default; update proxy to forward to :8080
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 30s
@@ -77,35 +66,26 @@ services:
 
   # n8n - configurado para Postgres + Redis queue (production-ready minimal)
   n8n:
-    image: n8nio/n8n:1.112.3 # trocado para `latest` temporariamente; substitua por uma tag fixa testada em produção
+    image: n8nio/n8n:1.112.3
     environment:
-      # DB (Postgres)
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
-      DB_POSTGRESDB_USER: ${POSTGRES_USER}
-      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
-
-      # Redis (fila)
+      DB_POSTGRESDB_DATABASE: ${N8N_DB_NAME}
+      DB_POSTGRESDB_USER: ${N8N_DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
       QUEUE_BULL_REDIS_HOST: redis
       QUEUE_BULL_REDIS_PORT: 6379
       QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
       QUEUE_MODE: redis
-
-      # Web / webhook config
-      N8N_HOST: n8n.${DOMAIN}
+      N8N_HOST: ${N8N_HOST}
       N8N_PORT: 5678
-      N8N_PROTOCOL: https
-      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      N8N_PROTOCOL: ${N8N_PROTOCOL}
+      WEBHOOK_URL: ${WEBHOOK_URL}
       GENERIC_TIMEZONE: America/Sao_Paulo
-
-      # Basic auth for UI (strongly recommended)
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
-
-      # Optional: disable anonymous public flows if needed
       N8N_PUBLIC_API_DISABLED: "true"
     volumes:
       - n8n_data:/home/node/.n8n
@@ -122,15 +102,13 @@ services:
       retries: 5
 
   chatwoot:
-    # Pin a versão do Chatwoot para reprodutibilidade e segurança
-    # Temporariamente usando `latest` para evitar erro de manifest não encontrado.
     image: chatwoot/chatwoot:v4.6.0
     command: bundle exec rails s -b 0.0.0.0 -p 3000
     environment:
       POSTGRES_HOST: postgres
-      POSTGRES_USERNAME: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DATABASE: ${POSTGRES_DB}
+      POSTGRES_USERNAME: ${CHATWOOT_DB_USER}
+      POSTGRES_PASSWORD: ${CHATWOOT_DB_PASSWORD}
+      POSTGRES_DATABASE: ${CHATWOOT_DB_NAME}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${CHATWOOT_SECRET}
       FRONTEND_URL: https://chat.${DOMAIN}
@@ -154,9 +132,9 @@ services:
     command: bundle exec sidekiq
     environment:
       POSTGRES_HOST: postgres
-      POSTGRES_USERNAME: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DATABASE: ${POSTGRES_DB}
+      POSTGRES_USERNAME: ${CHATWOOT_DB_USER}
+      POSTGRES_PASSWORD: ${CHATWOOT_DB_PASSWORD}
+      POSTGRES_DATABASE: ${CHATWOOT_DB_NAME}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${CHATWOOT_SECRET}
       RAILS_ENV: production
