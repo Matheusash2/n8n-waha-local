@@ -46,7 +46,7 @@ services:
       # Evolution API expects an authentication key variable named AUTHENTICATION_API_KEY
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
       # legacy variable (kept for compatibility with other parts of the compose)
-      WAHA_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
       # If Evolution needs Redis/Postgres connection strings, add them here (optional)
     volumes:
@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
     # Evolution API serves on port 8080 by default; update proxy to forward to :8080
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/ || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -110,7 +110,7 @@ services:
       - redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5678/ || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:5678/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -191,6 +191,8 @@ volumes:
   pgdata:
   evolution_sessions:
   evolution_media:
+  evolution_store:
+  evolution_instances:
   n8n_data:
   chatwoot_data:
   proxy_data:
