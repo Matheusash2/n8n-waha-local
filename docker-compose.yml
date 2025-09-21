@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   redis:
     image: redis:8.2.1-alpine
@@ -37,16 +39,14 @@ services:
       timeout: 5s
       retries: 5
 
-  # Waha (WhatsApp adapter) - mapeando para /waha via proxy
   evolution:
     image: atendai/evolution-api:v2.2.3
     environment:
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
-      WHATSAPP_HOOK_URL: https://n8n.${DOMAIN}/webhook/webhook
       DATABASE_PROVIDER: postgresql
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${EVOLUTION_DB_NAME}
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      DATABASE_ENABLED: "true"
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_exchange
+      DATABASE_CONNECTION_URI: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${EVOLUTION_DB_NAME}?schema=public"
     volumes:
       - evolution_sessions:/app/.sessions
       - evolution_media:/app/.media
@@ -55,8 +55,10 @@ services:
     networks:
       - internal_net
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
@@ -64,7 +66,6 @@ services:
       timeout: 5s
       retries: 3
 
-  # n8n - configurado para Postgres + Redis queue (production-ready minimal)
   n8n:
     image: n8nio/n8n:1.112.3
     environment:
@@ -74,10 +75,15 @@ services:
       DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
       DB_POSTGRESDB_USER: ${POSTGRES_USER}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+
+      EXECUTIONS_MODE: queue
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+
+      QUEUE_MODE: redis
       QUEUE_BULL_REDIS_HOST: redis
       QUEUE_BULL_REDIS_PORT: 6379
       QUEUE_BULL_REDIS_PASSWORD: ${REDIS_PASSWORD}
-      QUEUE_MODE: redis
+
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: 5678
       N8N_PROTOCOL: ${N8N_PROTOCOL}
@@ -88,16 +94,18 @@ services:
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
       N8N_PUBLIC_API_DISABLED: "true"
-      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: true
-      N8N_RUNNERS_ENABLED: true
-      N8N_BLOCK_ENV_ACCESS_IN_NODE: false
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_RUNNERS_ENABLED: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
       - internal_net
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5678/ || exit 1"]
@@ -117,11 +125,15 @@ services:
       SECRET_KEY_BASE: ${CHATWOOT_SECRET}
       FRONTEND_URL: https://chat.${DOMAIN}
       RAILS_ENV: production
+      RAILS_LOG_TO_STDOUT: "true"
+      RAILS_SERVE_STATIC_FILES: "true"
     volumes:
       - chatwoot_data:/app/storage
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - internal_net
     restart: unless-stopped
@@ -142,30 +154,27 @@ services:
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${CHATWOOT_SECRET}
       RAILS_ENV: production
+      RAILS_LOG_TO_STDOUT: "true"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - internal_net
     restart: unless-stopped
 
-  # Nginx Proxy Manager (faz SSL via Let's Encrypt e gerencia hosts)
   proxy:
-    # Pin a versão do Nginx Proxy Manager
     image: jc21/nginx-proxy-manager:2.12.6
     ports:
       - "80:80"
       - "443:443"
-      # Painel admin: recomendo mapear apenas para localhost (ver notas abaixo)
       - "127.0.0.1:81:81"
     volumes:
       - proxy_data:/data
       - proxy_letsencrypt:/etc/letsencrypt
-    # você pode definir credenciais iniciais via env (opcional)
-    # Exemplo: DISABLE_IPV6: "true"
-    # Security note: prefer provisionamento de credenciais via Docker secrets
-    # e mantenha o painel admin do NPM acessível apenas via localhost/SSH tunnel.
-    environment: {}
+    environment:
+      DISABLE_IPV6: "true"
     networks:
       - internal_net
     restart: unless-stopped
