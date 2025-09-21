@@ -120,35 +120,39 @@ services:
       start_period: 40s
 
   chatwoot:
-    image: chatwoot/chatwoot:v4.6.0
-    command: bundle exec rails s -b 0.0.0.0 -p 3000
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_USERNAME: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DATABASE: ${POSTGRES_DB}
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
-      SECRET_KEY_BASE: ${CHATWOOT_SECRET}
-      FRONTEND_URL: https://chat.${DOMAIN}
-      RAILS_ENV: production
-      RAILS_LOG_TO_STDOUT: "true"
-      RAILS_SERVE_STATIC_FILES: "true"
-    volumes:
-      - chatwoot_data:/app/storage
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - internal_net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fk https://chat.${DOMAIN}/app/login || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
+  image: chatwoot/chatwoot:v4.6.0
+  command: bundle exec rails s -b 0.0.0.0 -p 3000
+  environment:
+    POSTGRES_HOST: postgres
+    POSTGRES_USERNAME: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    POSTGRES_DATABASE: ${POSTGRES_DB}
+    REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+    SECRET_KEY_BASE: ${CHATWOOT_SECRET}
+    FRONTEND_URL: https://chat.${DOMAIN}
+    RAILS_ENV: production
+    RAILS_LOG_TO_STDOUT: "true"
+    RAILS_SERVE_STATIC_FILES: "true"
+    RAILS_MAX_THREADS: 5
+    WEB_CONCURRENCY: 2
+    INSTALLATION_ENV: docker
+    DEFAULT_LOCALE: pt_BR
+  volumes:
+    - chatwoot_data:/app/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks:
+    - internal_net
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fk https://chat.${DOMAIN}/app/login || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 40s
 
   chatwoot-worker:
     image: chatwoot/chatwoot:v4.6.0
