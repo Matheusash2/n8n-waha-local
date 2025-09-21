@@ -38,7 +38,7 @@ services:
       retries: 5
 
   # Waha (WhatsApp adapter) - mapeando para /waha via proxy
-  waha:
+  evolution:
     image: atendai/evolution-api:v2.2.3
     environment:
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
