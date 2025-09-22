@@ -118,7 +118,8 @@ services:
 
   chatwoot:
     image: chatwoot/chatwoot:v4.6.0
-    command: bundle exec rails s -b 0.0.0.0 -p 3000
+    command:
+      ["bundle", "exec", "rails", "server", "-b", "0.0.0.0", "-p", "3000"]
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USERNAME: ${POSTGRES_USER}
@@ -145,7 +146,11 @@ services:
       - internal_net
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/installation/onboarding || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
