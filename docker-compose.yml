@@ -48,6 +48,7 @@ services:
       CACHE_REDIS_ENABLED: true
       CACHE_REDIS_URI: redis://default:${REDIS_PASSWORD}@redis:6379
       CACHE_REDIS_PREFIX_KEY: evolution
+      CONFIG_SESSION_PHONE_VERSION: 2.3000.1027426813
     volumes:
       - evolution_sessions:/app/.sessions
       - evolution_media:/app/.media
