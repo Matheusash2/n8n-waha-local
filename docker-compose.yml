@@ -48,11 +48,7 @@ services:
       CACHE_REDIS_ENABLED: true
       CACHE_REDIS_URI: redis://default:${REDIS_PASSWORD}@redis:6379
       CACHE_REDIS_PREFIX_KEY: evolution
-<<<<<<< HEAD
       CONFIG_SESSION_PHONE_VERSION: 2.3000.1027426813
-=======
-      CHATWOOT_ENABLED: true
->>>>>>> 798b3d5 (refactor: correção no ´docker-compose.yml´)
     volumes:
       - evolution_sessions:/app/.sessions
       - evolution_media:/app/.media
