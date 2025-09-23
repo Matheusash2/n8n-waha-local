@@ -42,13 +42,17 @@ services:
     environment:
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
       DATABASE_PROVIDER: postgresql
-      DATABASE_ENABLED: "true"
+      DATABASE_ENABLED: true
       DATABASE_CONNECTION_CLIENT_NAME: evolution_exchange
       DATABASE_CONNECTION_URI: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${EVOLUTION_DB_NAME}?schema=public"
       CACHE_REDIS_ENABLED: true
       CACHE_REDIS_URI: redis://default:${REDIS_PASSWORD}@redis:6379
       CACHE_REDIS_PREFIX_KEY: evolution
+<<<<<<< HEAD
       CONFIG_SESSION_PHONE_VERSION: 2.3000.1027426813
+=======
+      CHATWOOT_ENABLED: true
+>>>>>>> 798b3d5 (refactor: correção no ´docker-compose.yml´)
     volumes:
       - evolution_sessions:/app/.sessions
       - evolution_media:/app/.media
