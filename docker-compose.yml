@@ -50,6 +50,10 @@ services:
       CACHE_REDIS_PREFIX_KEY: evolution
       CONFIG_SESSION_PHONE_VERSION: 2.3000.1027426813
       CHATWOOT_ENABLED: true
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      S3_SECRET_KEY: ${MINIO_SECRET_KEY}
+      S3_BUCKET: evolution-media
     volumes:
       - evolution_sessions:/app/.sessions
       - evolution_media:/app/.media
@@ -137,6 +141,13 @@ services:
       WEB_CONCURRENCY: 2
       INSTALLATION_ENV: docker
       DEFAULT_LOCALE: pt_BR
+      ACTIVE_STORAGE_SERVICE: s3_compatible
+      STORAGE_BUCKET_NAME: chatwoot
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+      STORAGE_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY}
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_FORCE_PATH_STYLE: true
     volumes:
       - chatwoot_data:/app/storage
     depends_on:
@@ -195,6 +206,43 @@ services:
       timeout: 5s
       retries: 3
 
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    networks:
+      - internal_net
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    depends_on:
+      - minio
+    networks:
+      - internal_net
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        # aguarda minio aceitar conexões e cria buckets seguros (ignora se já existem)
+        for i in $(seq 1 30); do
+          mc alias set myminio http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} && break || sleep 2;
+        done
+        mc ls myminio > /dev/null || true
+        mc mb --ignore-existing myminio/evolution-media
+        mc mb --ignore-existing myminio/chatwoot
+        # (opcional) configurar política de leitura pública somente se quiser:
+        # mc policy set download myminio/chatwoot
+        echo "Buckets criados/configurados"
+        # exit para não reiniciar; se preferir ver logs, remova "--rm"
+    restart: "no"
+
 volumes:
   pgdata:
   evolution_sessions:
@@ -206,6 +254,7 @@ volumes:
   proxy_data:
   proxy_letsencrypt:
   redis_data:
+  minio_data:
 
 networks:
   internal_net:
