@@ -11,20 +11,20 @@ RESTORE_DIR="/opt/backups"
 PG_FILE=$(ls -t $RESTORE_DIR/postgres/*.gz | head -1)
 
 echo "🔄 Parando serviços..."
-docker-compose down -v
+docker compose down -v
 
 echo "🟦 Restaurando Postgres..."
 
 gunzip -c "$PG_FILE" > /tmp/restore_pg.sql
 
-docker-compose up -d postgres
+docker compose up -d postgres
 
 echo "⏳ Aguardando Postgres..."
-until docker-compose exec -T postgres pg_isready -U "$POSTGRES_USER" >/dev/null 2>&1; do
+until docker compose exec -T postgres pg_isready -U "$POSTGRES_USER" >/dev/null 2>&1; do
   sleep 3
 done
 
-cat /tmp/restore_pg.sql | docker-compose exec -T postgres psql -U "$POSTGRES_USER"
+cat /tmp/restore_pg.sql | docker compose exec -T postgres psql -U "$POSTGRES_USER"
 
 echo "✅ Postgres restaurado!"
 
@@ -54,7 +54,7 @@ echo "✅ Volumes restaurados"
 # Restaurar MinIO
 echo "🟧 Restaurando MinIO buckets..."
 
-docker-compose up -d minio
+docker compose up -d minio
 
 sleep 10
 
@@ -68,6 +68,6 @@ done
 echo "✅ MinIO restaurado"
 
 echo "🌐 Subindo stack..."
-docker-compose up -d
+docker compose up -d
 
 echo "🎉 RESTORE COMPLETO FINALIZADO!"

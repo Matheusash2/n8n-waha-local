@@ -8,7 +8,7 @@ BACKUP_DIR="/opt/backups"
 RETENTION_DAYS=7
 
 DATE=$(date +%F_%H%M)
-PG_CONTAINER=$(docker-compose ps -q postgres)
+PG_CONTAINER=$(docker compose ps -q postgres)
 MINIO_ALIAS="myminio"
 MINIO_URL="http://127.0.0.1:9000"
 
