@@ -17,6 +17,20 @@ services:
       timeout: 5s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4:8.11
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    restart: unless-stopped
+
   redis:
     image: redis:8.2.1-alpine
     command:
@@ -187,6 +201,7 @@ services:
       N8N_PROTOCOL: ${N8N_PROTOCOL}
       WEBHOOK_URL: ${WEBHOOK_URL}
       GENERIC_TIMEZONE: America/Sao_Paulo
+      GENERIC_LOCALE: pt-BR
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
