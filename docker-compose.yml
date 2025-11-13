@@ -139,8 +139,8 @@ services:
       POSTGRES_DATABASE: ${CHATWOOT_DB}
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${CHATWOOT_SECRET}
-      FRONTEND_URL: https://chat.${DOMAIN}
-      DEFAULT_URL_HOST: chat.${DOMAIN}
+      FRONTEND_URL: https://chatwoot.${DOMAIN}
+      DEFAULT_URL_HOST: chatwoot.${DOMAIN}
       DEFAULT_URL_PROTOCOL: https
       RAILS_ENV: production
       ACTIVE_STORAGE_SERVICE: s3_compatible
@@ -184,8 +184,8 @@ services:
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${CHATWOOT_SECRET}
       RAILS_ENV: production
-      FRONTEND_URL: https://chat.${DOMAIN}
-      DEFAULT_URL_HOST: chat.${DOMAIN}
+      FRONTEND_URL: https://chatwoot.${DOMAIN}
+      DEFAULT_URL_HOST: chatwoot.${DOMAIN}
       DEFAULT_URL_PROTOCOL: https
       SMTP_ADDRESS: smtp.gmail.com
       SMTP_PORT: 587
