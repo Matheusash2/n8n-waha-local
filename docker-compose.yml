@@ -150,6 +150,14 @@ services:
       STORAGE_REGION: ${STORAGE_REGION}
       AWS_REGION: ${AWS_REGION}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      SMTP_ADDRESS: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_DOMAIN: gmail.com
+      SMTP_USERNAME: ${EMAIL_USER}
+      SMTP_PASSWORD: ${EMAIL_PASSWORD}
+      SMTP_AUTHENTICATION: plain
+      SMTP_ENABLE_STARTTLS_AUTO: true
+      MAILER_SENDER_EMAIL: "Chatwoot <${EMAIL_USER}>"
     volumes:
       - chatwoot_data:/app/storage
     depends_on:
