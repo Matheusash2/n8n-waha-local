@@ -93,7 +93,7 @@ services:
         condition: service_healthy
 
   evolution:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.3.6
     environment:
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
       DATABASE_PROVIDER: postgresql
@@ -107,6 +107,7 @@ services:
       S3_SECRET_KEY: ${MINIO_SECRET_KEY}
       S3_BUCKET: evolution-media
       CONFIG_SESSION_PHONE_VERSION: ${WHATSAPP_VERSION}
+      SERVER_URL: https://evolution.${DOMAIN}
     volumes:
       - evolution_sessions:/app/.sessions
       - evolution_media:/app/.media
